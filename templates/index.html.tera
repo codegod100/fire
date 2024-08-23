@@ -1,0 +1,5 @@
+{% extends "tera/base" %}
+
+{% block content %}
+    Hello {{ name }}
+{% endblock content %}
