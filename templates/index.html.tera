@@ -1,5 +1,5 @@
-{% extends "tera/base" %}
+{% extends "base" %}
 
 {% block content %}
-    Hello {{ name }}
+    <div>Hello {{ name }}</div>
 {% endblock content %}

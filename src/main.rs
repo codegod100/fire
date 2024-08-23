@@ -19,5 +19,7 @@ fn greeter(name: &str) -> Template {
 }
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![index, greeter])
+    rocket::build()
+        .mount("/", routes![index, greeter])
+        .attach(Template::fairing())
 }
