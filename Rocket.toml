@@ -1,2 +1,5 @@
 [default]
 template_dir = "templates"
+
+[default.databases.sqlite_logs]
+url = "database.sqlite"

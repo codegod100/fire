@@ -2,8 +2,10 @@
 extern crate rocket;
 use rocket::http::{CookieJar, Status};
 use rocket::response::{Flash, Redirect};
-
 use rocket_dyn_templates::{context, tera::Tera, Template};
+// use serde::Serialize;
+
+mod db;
 
 #[get("/")]
 fn index(jar: &CookieJar<'_>) -> Template {
@@ -11,7 +13,8 @@ fn index(jar: &CookieJar<'_>) -> Template {
         Some(c) => Template::render(
             "index",
             context! {
-                name: c.value()
+                name: c.value(),
+
             },
         ),
         None => Template::render("login", context! {}),

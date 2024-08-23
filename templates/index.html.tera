@@ -13,4 +13,11 @@
     {% if name == "admin" %}
         {% include "admin" %}
     {% endif %}
+
+    <div>
+        <div class="mt-5 mb-2">Posts:</div>
+        <div>
+            {{ macros::make_post(post=post) }}
+        </div>
+    </div>
 {% endblock content %}

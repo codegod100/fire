@@ -6,3 +6,23 @@
 <button type="submit" class="mt-5 ml-5 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
     >{{text}}</button>
 {% endmacro submit_button %}
+
+{% macro make_post(post) %}
+    <div>
+        <div>{{ post.title }}</div>
+        <div>@{{ post.author }}</div>
+        <div>Comments:</div>
+        {% for comment in post.comments %}
+            {{ self::make_comment(comment=comment) }}
+        {% endfor %}
+    </div>
+{% endmacro make_post %}
+
+{% macro make_comment(comment) %}
+    <div class="ml-3"> {{ comment.author }}: {{ comment.body }} </div>
+    {% for child in comment.children %}
+        <div class="ml-3">
+            {{ self::make_comment(comment=child) }}
+        </div>
+    {% endfor %}
+{% endmacro make_comment %}
