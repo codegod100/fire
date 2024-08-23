@@ -1,3 +1,4 @@
+{% import "macros" as macros %}
 <html>
     <head>
         <title>

@@ -1,0 +1,7 @@
+{% extends "base" %}
+
+{% block content %}
+<form method="POST">
+   {{ macros::submit_button(text="Log me in") }}
+</form>
+{% endblock content %}

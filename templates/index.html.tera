@@ -5,8 +5,12 @@
 {% endblock title %}
 
 {% block content %}
-    {% set button_text = "Login" %}
-    {% include "button" %}
-
     <div class="ml-3">Hello {{ name }}</div>
+    <div><form method="POST">
+        {{ macros::submit_button(text="Logout") }}
+    </form></div>
+
+    {% if name == "admin" %}
+        {% include "admin" %}
+    {% endif %}
 {% endblock content %}
