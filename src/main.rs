@@ -36,36 +36,39 @@ struct Comment {
 }
 
 fn sort_comments(comments: Vec<Comment>) -> Vec<Comment> {
-    let backup = comments.clone();
-    let parent_comments: Vec<Comment> = comments
+    let c_comments = comments.clone();
+    let parent_comments: Vec<Comment> = c_comments
         .into_iter()
         .filter(|c| c.parent_id == None)
-        .collect();
-    let child_comments: Vec<Comment> = backup.into_iter().filter(|c| c.parent_id != None).collect();
-
-    parent_comments
-        .into_iter()
-        .map(|mut parent| {
-            let possible = child_comments.clone();
-            let children = children_for_parent(&parent, possible);
-            parent.children = children;
-            parent
+        .map(|c| {
+            let c_comments = comments.clone();
+            add_children(c, c_comments)
         })
-        .collect()
+        .collect();
+    parent_comments
 }
 
-fn children_for_parent(comment: &Comment, possible: Vec<Comment>) -> Vec<Comment> {
-    possible
+fn add_children(mut comment: Comment, comments: Vec<Comment>) -> Comment {
+    // Find children for comment
+    let c_comment = comment.clone();
+    let c_comments = comments.clone();
+    let children = children_for_parent(c_comment, c_comments);
+    let nested: Vec<Comment> = children
         .into_iter()
-        .filter(|child| match child.parent_id {
-            Some(parent_id) => {
-                if parent_id == comment.id {
-                    true
-                } else {
-                    false
-                }
-            }
+        .map(|child| {
+            let c_comments = comments.clone();
+            add_children(child, c_comments)
+        })
+        .collect();
+    comment.children = nested;
+    comment
+}
 
+fn children_for_parent(parent: Comment, comments: Vec<Comment>) -> Vec<Comment> {
+    comments
+        .into_iter()
+        .filter(|comment| match comment.parent_id {
+            Some(parent_id) => parent_id == parent.id,
             None => false,
         })
         .collect()
