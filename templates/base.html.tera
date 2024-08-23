@@ -1,4 +1,11 @@
 <html>
+    <head>
+        <title>
+            {% block title %}
+            {% endblock title %}
+        </title>
+        <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet">
+    </head>
     {% block content %}
     {% endblock content %}
 </html>

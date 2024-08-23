@@ -1,5 +1,12 @@
 {% extends "base" %}
 
+{% block title %}
+    Greeter
+{% endblock title %}
+
 {% block content %}
-    <div>Hello {{ name }}</div>
+    {% set button_text = "Login" %}
+    {% include "button" %}
+
+    <div class="ml-3">Hello {{ name }}</div>
 {% endblock content %}
