@@ -1,14 +1,15 @@
 #[macro_use]
 extern crate rocket;
-use rocket::http::{CookieJar, Status};
-use rocket::response::{Flash, Redirect};
-use rocket_db_pools::sqlx::sqlite::SqliteRow;
-use rocket_dyn_templates::{context, tera::Tera, Template};
+use rocket::http::CookieJar;
+use rocket::response::Redirect;
+use rocket_dyn_templates::{context, Template};
 // use serde::Serialize;
-use rocket_db_pools::sqlx::{self, Row};
+use rocket_db_pools::sqlx::{self};
 use rocket_db_pools::{Connection, Database};
-use serde::Deserialize;
-use std::borrow::Cow;
+
+use rocket::http::Status;
+use rocket::outcome::{try_outcome, IntoOutcome};
+use rocket::request::{self, FromRequest, Outcome, Request};
 
 #[derive(Database)]
 #[database("main")]
@@ -34,6 +35,40 @@ struct Comment {
     #[sqlx(skip)]
     children: Vec<Comment>,
 }
+
+
+#[derive(sqlx::FromRow)]
+struct Person{
+    id: i32,
+    username: String
+}
+
+#[derive(Clone)]
+struct User(String);
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for User {
+    type Error = std::convert::Infallible;
+
+    async fn from_request(request: &'r Request<'_>) -> request::Outcome<User, Self::Error> {
+        let outcome = request.guard::<&Main>().await;
+        let db = outcome.unwrap();
+        let user_option = request.cookies()
+        .get_private("user_id")
+        .and_then(|cookie| cookie.value().parse().ok())
+        .map(User);
+    let u = user_option.clone().unwrap().0;
+    let res = sqlx::query_as::<_, Person>("select * from users where username = ?").bind(u).fetch_one(&db.0).await;
+        let m = match res{
+            Ok(_) => user_option,
+            Err(_) => None
+        };
+        m.or_forward(Status::Unauthorized)
+
+    }
+}
+
+
 
 fn sort_comments(comments: Vec<Comment>) -> Vec<Comment> {
     let c_comments = comments.clone();
@@ -75,7 +110,7 @@ fn children_for_parent(parent: Comment, comments: Vec<Comment>) -> Vec<Comment> 
 }
 
 #[get("/")]
-async fn index(mut db: Connection<Main>, jar: &CookieJar<'_>) -> Template {
+async fn index(mut db: Connection<Main>, jar: &CookieJar<'_>, ) -> Template {
     match jar.get_private("user_id") {
         Some(c) => {
             let p = sqlx::query_as::<_, Post>("select * from posts where id = ?")
@@ -109,6 +144,11 @@ async fn index(mut db: Connection<Main>, jar: &CookieJar<'_>) -> Template {
     }
 }
 
+#[get("/test")]
+fn test(u: User) -> String {
+    format!("yolo")
+}
+
 #[post("/")]
 fn post_login(jar: &CookieJar<'_>) -> Redirect {
     jar.add_private(("user_id", "admin"));
@@ -136,7 +176,7 @@ fn logout(jar: &CookieJar<'_>) -> Redirect {
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .mount("/", routes![index, post_login, logout])
+        .mount("/", routes![index, post_login, logout,test])
         .attach(Template::fairing())
         .attach(Main::init())
 }
