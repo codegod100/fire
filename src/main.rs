@@ -2,18 +2,21 @@
 extern crate rocket;
 use std::env;
 
-use rocket::futures::StreamExt;
+use rocket::futures::{future, StreamExt};
 use rocket::http::CookieJar;
 use rocket::response::Redirect;
 use rocket_dyn_templates::{context, Template};
-
+use rocket::serde::{Serialize, Deserialize};
 use rocket::http::Status;
 use rocket::outcome::{try_outcome, IntoOutcome};
 use rocket::request::{self, FromRequest, Outcome, Request};
 
 use libsql::Builder;
 
-#[derive(Debug)]
+use rocket::fs::NamedFile;
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Serialize)]
 struct Post {
     id: i32,
     title: String,
@@ -34,18 +37,20 @@ impl From<libsql::Row> for Post {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Comment {
     id: i32,
     author: String,
     body: String,
     parent_id: Option<i32>,
     post_id: i32,
+    #[serde(skip_deserializing)]
     children: Vec<Comment>,
 }
 
 impl From<libsql::Row> for Comment {
     fn from(row: libsql::Row) -> Self {
+        println!("[ROW]:: {:#?}", row);
         Comment {
             id: row.get(0).unwrap(),
             author: row.get(1).unwrap(),
@@ -168,21 +173,19 @@ fn children_for_parent(parent: Comment, comments: Vec<Comment>) -> Vec<Comment> 
 
 #[get("/")]
 async fn index(jar: &CookieJar<'_>, turso: Turso) -> Template {
-    let mut rows = turso
+    let row = turso
         .0
         .query("select * from posts where id = ?1", libsql::params! {1})
         .await
-        .unwrap();
-    let posts: Vec<Post> = rows
+        .unwrap()
         .next()
         .await
-        .into_iter()
-        .filter(|row| row.is_some()) // remove empty resultset
-        .map(|row| Post::from(row.unwrap()))
-        .collect();
-    println!("[ROWS]:: {:#?}", posts);
+        .unwrap()
+        .unwrap();
+    let mut post = Post::from(row);
+    println!("[ROWS]:: {:#?}", post);
 
-    let mut rows = turso
+    let rows = turso
         .0
         .query(
             "select * from comments where post_id = ?1",
@@ -191,13 +194,21 @@ async fn index(jar: &CookieJar<'_>, turso: Turso) -> Template {
         .await
         .unwrap();
     let comments: Vec<Comment> = rows
-        .next()
-        .await
-        .into_iter()
-        .filter(|row| row.is_some())
-        .map(|row| Comment::from(row.unwrap()))
-        .collect();
+        .into_stream()
+        .filter(|row| future::ready(row.is_ok()))
+        .map(|row| {
+            // println!("[ROW]:: {:#?}", row);
+            // Comment::from(row.unwrap())
+            libsql::de::from_row(&row.unwrap()).unwrap()
+        })
+        .collect()
+        .await;
     println!("[ROWS]:: {:#?}", comments);
+
+    let sorted = sort_comments(comments);
+    post.comments = sorted;
+
+    println!("[POST]:: {:#?}", post);
 
     // match jar.get_private("user_id") {
     //     Some(c) => {
@@ -230,7 +241,10 @@ async fn index(jar: &CookieJar<'_>, turso: Turso) -> Template {
     //     }
     //     None => Template::render("login", context! {}),
     // }
-    Template::render("admin", context! {})
+    Template::render("index", context! {
+        post: post,
+        name: "admin"
+    })
 }
 
 #[get("/test")]
@@ -262,9 +276,15 @@ fn logout(jar: &CookieJar<'_>) -> Redirect {
     jar.remove_private("user_id");
     Redirect::to(uri!(index))
 }
+
+#[get("/<file..>")]
+async fn files(file: PathBuf) -> Option<NamedFile> {
+    NamedFile::open(Path::new("static").join(file)).await.ok()
+}
+
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .mount("/", routes![index, post_login, logout, test])
+        .mount("/", routes![index, post_login, logout, test,files])
         .attach(Template::fairing())
 }
