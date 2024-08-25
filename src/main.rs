@@ -4,12 +4,12 @@ use std::env;
 
 use rocket::futures::{future, StreamExt};
 use rocket::http::CookieJar;
-use rocket::response::Redirect;
-use rocket_dyn_templates::{context, Template};
-use rocket::serde::{Serialize, Deserialize};
 use rocket::http::Status;
 use rocket::outcome::{try_outcome, IntoOutcome};
 use rocket::request::{self, FromRequest, Outcome, Request};
+use rocket::response::Redirect;
+use rocket::serde::{Deserialize, Serialize};
+use rocket_dyn_templates::{context, Template};
 
 use libsql::Builder;
 
@@ -241,10 +241,25 @@ async fn index(jar: &CookieJar<'_>, turso: Turso) -> Template {
     //     }
     //     None => Template::render("login", context! {}),
     // }
-    Template::render("index", context! {
-        post: post,
-        name: "admin"
-    })
+    // Template::render("index", context! {
+    //     post: post,
+    //     name: "admin"
+    // })
+
+    let c = jar.get_private("user_id");
+    if let None = c {
+        return Template::render("login", context! {});
+    }
+
+    // let name = c.unwrap().value();
+
+    Template::render(
+        "index",
+        context! {
+            post: post,
+            name: c.unwrap().value()
+        },
+    )
 }
 
 #[get("/test")]
@@ -285,6 +300,6 @@ async fn files(file: PathBuf) -> Option<NamedFile> {
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .mount("/", routes![index, post_login, logout, test,files])
+        .mount("/", routes![index, post_login, logout, test, files])
         .attach(Template::fairing())
 }
