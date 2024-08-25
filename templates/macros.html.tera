@@ -9,8 +9,8 @@
 
 {% macro make_post(post) %}
     <div>
-        <div>{{ post.title }}</div>
-        <div>@{{ post.author }}</div>
+        <div class="text-2xl">{{ post.title }}</div>
+        <div class="mb-3">@{{ post.author }}: {{ post.body }}</div>
         <div>Comments:</div>
         {% for comment in post.comments %}
             {{ self::make_comment(comment=comment) }}
@@ -19,7 +19,7 @@
 {% endmacro make_post %}
 
 {% macro make_comment(comment) %}
-    <div class="ml-3"> {{ comment.author }}: {{ comment.body }} </div>
+    <div class="ml-3"> @{{ comment.author }}: {{ comment.body }} </div>
     {% for child in comment.children %}
         <div class="ml-3">
             {{ self::make_comment(comment=child) }}

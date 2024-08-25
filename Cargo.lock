@@ -659,6 +659,7 @@ dependencies = [
 name = "fire"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "libsql",
  "rocket",
  "rocket_dyn_templates",
