@@ -1,17 +1,13 @@
 #[macro_use]
 extern crate rocket;
 use std::env;
-use std::time::SystemTime;
 
-use query::Post;
+use libsql::Builder;
 use rocket::http::CookieJar;
 use rocket::request::{self, FromRequest, Outcome, Request};
 use rocket::response::Redirect;
-use rocket::serde::{Deserialize, Serialize};
 use rocket::time::Instant;
 use rocket_dyn_templates::{context, Template};
-
-use libsql::Builder;
 
 use rocket::fs::NamedFile;
 use std::path::{Path, PathBuf};
@@ -45,7 +41,7 @@ struct User(String);
 
 #[get("/")]
 async fn index(jar: &CookieJar<'_>, turso: Turso) -> Template {
-    let post = Post::by_id(1, &turso).await.unwrap();
+    let post = turso.get_post_by_id(1).await.unwrap();
     match jar.get_private("user_id") {
         None => Template::render("login", context! {}),
         Some(c) => Template::render(
