@@ -26,10 +26,10 @@ pub struct Comment {
     children: Vec<Comment>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, FromForm)]
 pub struct User {
-    id: i32,
-    name: String,
+    // id: i32,
+    pub name: String,
 }
 
 impl Turso {
@@ -68,15 +68,18 @@ impl Turso {
         Ok(comments)
     }
 
-    // pub async fn get_user_by_name(&self, name: &str) -> Result<Option<User>, serde::de::value::Error> {
-    //     let row = self
-    //         .single_query(
-    //             "select * from users where name = ?1",
-    //             libsql::params! {name},
-    //         )
-    //         .await;
-    //     User::from_row(&row)
-    // }
+    pub async fn get_user_by_name(&self, name: &str) -> Result<Option<User>> {
+        let row = self
+            .single_query(
+                "select * from users where name = ?1",
+                libsql::params! {name},
+            )
+            .await?;
+        match row{
+            Some(row) => Ok(Some(from_row(&row)?)),
+            None => Ok(None)
+        }
+    }
 
     async fn single_query(&self, q: &str, params: impl IntoParams) -> Result<Option<Row>> {
         let mut rows = self.0.query(q, params).await?;

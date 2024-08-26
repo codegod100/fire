@@ -1,7 +1,19 @@
 {% extends "base" %}
 
 {% block content %}
+
+{% if message %}
+   {% set color = "white" %}
+   {%if kind == "error" %} 
+      {% set color = "rose-500" %}
+      {% set message_title = "Error" %}
+   {% endif %}
+   <div class="dark:text-rose-500"></div> 
+   <div class="dark:text-{{ color }}">{{ message_title }}: {{ message }}</div>
+{% endif %}
+
 <form method="POST">
+   Name: <input type="text" class="input dark:text-black p-1" name=name>
    {{ macros::submit_button(text="Log me in") }}
 </form>
 {% endblock content %}
