@@ -5,7 +5,7 @@ use std::env;
 use libsql::Builder;
 use query::User;
 use rocket::form::Form;
-use rocket::http::CookieJar;
+use rocket::http::{CookieJar, Status};
 use rocket::request::FlashMessage;
 use rocket::request::{self, FromRequest, Outcome, Request};
 use rocket::response::{Flash, Redirect};
@@ -18,6 +18,8 @@ use std::path::{Path, PathBuf};
 mod query;
 
 struct Turso(libsql::Connection);
+
+struct Auth(String);
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for Turso {
@@ -39,37 +41,51 @@ impl<'r> FromRequest<'r> for Turso {
     }
 }
 
-#[get("/")]
-async fn index(jar: &CookieJar<'_>, turso: Turso, flash: Option<FlashMessage<'_>>) -> Template {
-    let post = turso.get_post_by_id(1).await.unwrap();
-    match jar.get_private("user_id") {
-        None => match flash {
-            Some(flash) => {
-                println!("flash: {:#?}", flash);
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for Auth {
+    type Error = std::convert::Infallible;
 
-                Template::render(
-                    "login",
-                    context! {
-                        message: flash.message(),
-                        kind: flash.kind()
-                    },
-                )
-            }
-            None => Template::render("login", context! {}),
-        },
-        Some(c) => Template::render(
-            "index",
-            context! {
-                post: post,
-                name: c.value(),
-
-            },
-        ),
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Auth, Self::Error> {
+        let jar = request.guard::<&CookieJar<'_>>().await.unwrap();
+        match jar.get_private("user_id") {
+            None => Outcome::Forward(Status::Unauthorized),
+            Some(c) => Outcome::Success(Auth(c.value().to_string())),
+        }
     }
 }
 
+#[get("/")]
+async fn index(auth: Auth, turso: Turso) -> Template {
+    let post = turso.get_post_by_id(1).await.unwrap();
+    Template::render(
+        "index",
+        context! {
+            post: post,
+            name: auth.0,
+
+        },
+    )
+}
+
+#[get("/", rank = 2)]
+fn fallback_index(flash: Option<FlashMessage<'_>>) -> Template {
+    match flash {
+        Some(flash) => {
+            println!("flash: {:#?}", flash);
+
+            Template::render(
+                "login",
+                context! {
+                    message: flash.message(),
+                    kind: flash.kind()
+                },
+            )
+        }
+        None => Template::render("login", context! {}),
+    }
+}
 #[get("/test")]
-fn test() -> String {
+fn test(_auth: Auth) -> String {
     format!("yolo")
 }
 
@@ -97,7 +113,7 @@ fn logout(jar: &CookieJar<'_>) -> Redirect {
     Redirect::to(uri!(index))
 }
 
-#[get("/<file..>")]
+#[get("/static/<file..>", rank = 100)]
 async fn files(file: PathBuf) -> Option<NamedFile> {
     NamedFile::open(Path::new("static").join(file)).await.ok()
 }
@@ -105,6 +121,9 @@ async fn files(file: PathBuf) -> Option<NamedFile> {
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .mount("/", routes![index, post_login, logout, test, files])
+        .mount(
+            "/",
+            routes![index, fallback_index, post_login, logout, test, files],
+        )
         .attach(Template::fairing())
 }

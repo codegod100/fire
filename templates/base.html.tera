@@ -6,7 +6,7 @@
             {% endblock title %}
         </title>
         <!-- <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet"> -->
-        <link href="/output.css" rel="stylesheet">
+        <link href="/static/output.css" rel="stylesheet">
     </head>
     {% block content %}
     {% endblock content %}
