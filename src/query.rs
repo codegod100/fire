@@ -28,7 +28,12 @@ pub struct Comment {
 
 #[derive(Serialize, Deserialize, Debug, FromForm)]
 pub struct User {
-    // id: i32,
+    id: i32,
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, FromForm)]
+pub struct UserForm {
     pub name: String,
 }
 
