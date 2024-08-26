@@ -1,7 +1,3 @@
-{% macro foo(bar) %}
-    <div>{{ bar }}</div>
-{% endmacro foo %}
-
 {% macro submit_button(text) %}
 <button type="submit" class="mt-5 ml-5 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
     >{{text}}</button>
