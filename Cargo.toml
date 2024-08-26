@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.86"
+dotenvy = "0.15.7"
 libsql = "0.5.0"
 
 [dependencies.serde]

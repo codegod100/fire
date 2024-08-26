@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate rocket;
-use std::env;
-
+use dotenvy::dotenv;
 use libsql::Builder;
 use query::User;
 use rocket::form::Form;
@@ -10,6 +9,7 @@ use rocket::request::FlashMessage;
 use rocket::request::{self, FromRequest, Outcome, Request};
 use rocket::response::{Flash, Redirect};
 use rocket_dyn_templates::{context, Template};
+use std::env;
 use std::time::Instant;
 
 use rocket::fs::NamedFile;
@@ -95,9 +95,7 @@ async fn post_login(
     user: Form<User>,
     turso: Turso,
 ) -> Result<Redirect, Flash<Redirect>> {
-    println!("USER: {:#?}", user);
     let db_user = turso.get_user_by_name(&user.name).await.unwrap();
-    println!("DB_USER: {:#?}", db_user);
     if let Some(db_user) = db_user {
         if db_user.name == user.name {
             jar.add_private(("user_id", db_user.name));
@@ -113,13 +111,17 @@ fn logout(jar: &CookieJar<'_>) -> Redirect {
     Redirect::to(uri!(index))
 }
 
-#[get("/static/<file..>", rank = 100)]
+#[get("/static/<file..>")]
 async fn files(file: PathBuf) -> Option<NamedFile> {
     NamedFile::open(Path::new("static").join(file)).await.ok()
 }
 
 #[launch]
 fn rocket() -> _ {
+    match dotenv() {
+        Ok(r) => println!("loaded {:#?}", r),
+        Err(e) => println!("error loading .env: {}", e),
+    }
     rocket::build()
         .mount(
             "/",
