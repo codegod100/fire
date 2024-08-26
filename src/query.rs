@@ -75,9 +75,9 @@ impl Turso {
                 libsql::params! {name},
             )
             .await?;
-        match row{
+        match row {
             Some(row) => Ok(Some(from_row(&row)?)),
-            None => Ok(None)
+            None => Ok(None),
         }
     }
 
@@ -92,6 +92,10 @@ fn sort_comments(comments: Vec<Comment>) -> Vec<Comment> {
         .clone()
         .into_iter()
         .map(|c| add_children(c, comments.clone()))
+        .filter(|comment| match comment.parent_id {
+            Some(_) => false,
+            None => true,
+        })
         .collect::<Vec<Comment>>();
     parent_comments
 }
