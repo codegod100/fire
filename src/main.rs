@@ -30,13 +30,12 @@ impl<'r> FromRequest<'r> for Turso {
         let url = env::var("LIBSQL_URL").expect("LIBSQL_URL must be set");
         let token = env::var("LIBSQL_AUTH_TOKEN").unwrap_or_default();
 
-        // let db = Builder::new_remote_replica("local.db", url, token)
-        //     .build()
-        //     .await
-        //     .unwrap();
-        let db = Builder::new_remote(url, token).build().await.unwrap();
+        let db = Builder::new_remote_replica("local.db", url, token)
+            .build()
+            .await
+            .unwrap();
         let conn = db.connect().unwrap();
-        // db.sync().await.unwrap();
+        db.sync().await.unwrap();
         println!("Time: {}", time.elapsed().as_secs_f32());
         Outcome::Success(Turso(conn))
     }
