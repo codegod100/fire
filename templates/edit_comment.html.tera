@@ -3,7 +3,13 @@
 <form hx-post="/update_comment" hx-target="this" hx-swap="outerHTML">
     <input type="hidden" name="id" value={{ comment.id }}>
     <div class='ml-3'>
-        <div>@{{ comment.author }}: <input class='input dark:text-black p-1' type=text name='body' value='{{ comment.body }}'></div> 
+        <div>
+            @{{ comment.author }}: 
+            <div>
+                <textarea class='input dark:text-black p-1 align-top' type=text name='body'>{{ comment.body }}</textarea> <span class='htmx-indicator'>Saving...</span>
+            </div>
+        </div> 
         <div class='ml-3'><button type='submit' class="underline">save</button></div>
     </div>
+    
 </form>

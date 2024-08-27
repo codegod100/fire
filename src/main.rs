@@ -150,7 +150,7 @@ async fn files(file: PathBuf) -> Option<NamedFile> {
 fn rocket() -> _ {
     match dotenv() {
         Ok(r) => println!("loaded {:#?}", r),
-        Err(e) => println!("error loading .env: {}", e),
+        Err(e) => println!(".env not found, skipping {}", e),
     }
     rocket::build()
         .mount(
