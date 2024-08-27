@@ -9,7 +9,7 @@
 {% endif %}
 
 <form method="POST">
-   Name: <input type="text" class="input dark:text-black p-1" name=name>
+   Name: {{ macros::input_field(name="name", value="") }}
    {{ macros::submit_button(text="Log me in") }}
 </form>
 {% endblock content %}

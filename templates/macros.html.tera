@@ -25,3 +25,7 @@
         </div>
     {% endfor %}
 {% endmacro make_comment %}
+
+{% macro input_field(name,value) %}
+    <input class='input dark:text-black p-1' autocorrect="off" autocapitalize="none" type=text name='{{ name }}' value='{{ value }}'>
+{% endmacro input_field %}
