@@ -25,6 +25,7 @@ COPY --from=build /build/main ./
 
 ## copy runtime assets which may or may not exist
 COPY --from=build /build/Rocket.tom[l] ./Rocket.toml
+COPY --from=build /build/ca.crt ./ca.crt
 COPY --from=build /build/stati[c] ./static
 COPY --from=build /build/template[s] ./templates
 
