@@ -18,8 +18,8 @@ pub struct Post {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Comment {
     id: i32,
-    author: String,
-    body: String,
+    pub author: String,
+    pub body: String,
     parent_id: Option<i32>,
     post_id: i32,
     #[serde(skip_deserializing)]
@@ -51,6 +51,28 @@ impl Turso {
             }
             None => Ok(None),
         }
+    }
+    pub async fn get_comment_by_id(&self, id: i32) -> Result<Option<Comment>> {
+        let row = self
+            .single_query("select * from comments where id = ?1", libsql::params! {id})
+            .await?;
+        match row {
+            Some(row) => {
+                let comment = from_row::<Comment>(&row).unwrap();
+                Ok(Some(comment))
+            }
+            None => Ok(None),
+        }
+    }
+    pub async fn update_comment(&self, id: i32, body: String) -> Result<Option<Comment>> {
+        self.0
+            .execute(
+                "update comments set body = ?1 where id = ?2",
+                libsql::params! { body,id },
+            )
+            .await
+            .unwrap();
+        self.get_comment_by_id(id).await
     }
 
     pub async fn get_comments_by_post_id(&self, id: i32) -> Result<Vec<Comment>> {

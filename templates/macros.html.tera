@@ -15,7 +15,10 @@
 {% endmacro make_post %}
 
 {% macro make_comment(comment) %}
-    <div class="ml-3"> @{{ comment.author }}: {{ comment.body }} </div>
+    <div class="ml-3" hx-target="this" hx-swap="outer-html"> 
+        <div>@{{ comment.author }}: {{ comment.body }}</div>
+        <div class="ml-3"><button class="underline" hx-get="/get_comment/{{ comment.id }}">edit</button></div>
+    </div>
     {% for child in comment.children %}
         <div class="ml-3">
             {{ self::make_comment(comment=child) }}

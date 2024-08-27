@@ -2,7 +2,7 @@
 extern crate rocket;
 use dotenvy::dotenv;
 use libsql::Builder;
-use query::{User, UserForm};
+use query::{Comment, User, UserForm};
 use rocket::form::Form;
 use rocket::http::{CookieJar, Status};
 use rocket::request::FlashMessage;
@@ -21,6 +21,12 @@ struct Turso(libsql::Connection);
 
 struct Auth(String);
 
+#[derive(FromForm)]
+pub struct CommentForm {
+    id: i32,
+    pub body: String,
+}
+
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for Turso {
     type Error = std::convert::Infallible;
@@ -30,12 +36,15 @@ impl<'r> FromRequest<'r> for Turso {
         let url = env::var("LIBSQL_URL").expect("LIBSQL_URL must be set");
         let token = env::var("LIBSQL_AUTH_TOKEN").unwrap_or_default();
 
-        let db = Builder::new_remote_replica("local.db", url, token)
-            .build()
-            .await
-            .unwrap();
+        // let db = Builder::new_remote_replica("local.db", url, token)
+        //     .build()
+        //     .await
+        //     .unwrap();
+        // let conn = db.connect().unwrap();
+        let db = Builder::new_remote(url, token).build().await.unwrap();
         let conn = db.connect().unwrap();
-        db.sync().await.unwrap();
+
+        // db.sync().await.unwrap();
         println!("Time: {}", time.elapsed().as_secs_f32());
         Outcome::Success(Turso(conn))
     }
@@ -89,6 +98,27 @@ fn test(_auth: Auth) -> String {
     format!("yolo")
 }
 
+#[get("/get_comment/<id>")]
+async fn get_comment(id: i32, turso: Turso) -> Template {
+    let comment = turso.get_comment_by_id(id).await.unwrap().unwrap();
+    Template::render(
+        "edit_comment",
+        context! {
+            comment: comment
+        },
+    )
+}
+
+#[post("/update_comment", data = "<comment>")]
+async fn update_comment(comment: Form<CommentForm>, turso: Turso) -> Template {
+    let comment = turso
+        .update_comment(comment.id.clone(), comment.body.clone())
+        .await
+        .unwrap()
+        .unwrap();
+    Template::render("saved_comment", context! {comment: comment})
+}
+
 #[post("/", data = "<user>")]
 async fn post_login(
     jar: &CookieJar<'_>,
@@ -125,7 +155,16 @@ fn rocket() -> _ {
     rocket::build()
         .mount(
             "/",
-            routes![index, fallback_index, post_login, logout, test, files],
+            routes![
+                index,
+                fallback_index,
+                get_comment,
+                update_comment,
+                post_login,
+                logout,
+                test,
+                files
+            ],
         )
         .attach(Template::fairing())
 }

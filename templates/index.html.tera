@@ -10,6 +10,8 @@
         {{ macros::submit_button(text="Logout") }}
     </form></div>
 
+    <button hx-get="/test" hx-swap="outerHTML">Click me</button>
+
     {% if name == "admin" %}
         {% include "admin" %}
     {% endif %}
