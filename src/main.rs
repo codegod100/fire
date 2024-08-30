@@ -40,7 +40,6 @@ impl<'r> FromRequest<'r> for Turso {
         //     .build()
         //     .await
         //     .unwrap();
-        // let conn = db.connect().unwrap();
         let db = Builder::new_remote(url, token).build().await.unwrap();
         let conn = db.connect().unwrap();
 
@@ -93,9 +92,10 @@ fn fallback_index(flash: Option<FlashMessage<'_>>) -> Template {
         None => Template::render("login", context! {}),
     }
 }
+
 #[get("/test")]
-fn test(_auth: Auth) -> String {
-    format!("yolo")
+fn test_path() -> String {
+    format!("test")
 }
 
 #[get("/get_comment/<id>")]
@@ -112,7 +112,7 @@ async fn get_comment(id: i32, turso: Turso) -> Template {
 #[post("/update_comment", data = "<comment>")]
 async fn update_comment(comment: Form<CommentForm>, turso: Turso) -> Template {
     let comment = turso
-        .update_comment(comment.id.clone(), comment.body.clone())
+        .update_comment(comment.id, &comment.body)
         .await
         .unwrap()
         .unwrap();
@@ -147,11 +147,12 @@ async fn files(file: PathBuf) -> Option<NamedFile> {
 }
 
 #[launch]
-fn rocket() -> _ {
+async fn rocket() -> _ {
     match dotenv() {
         Ok(r) => println!("loaded {:#?}", r),
         Err(e) => println!(".env not found, skipping {}", e),
     }
+
     rocket::build()
         .mount(
             "/",
@@ -162,7 +163,7 @@ fn rocket() -> _ {
                 update_comment,
                 post_login,
                 logout,
-                test,
+                test_path,
                 files
             ],
         )

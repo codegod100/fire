@@ -5,6 +5,8 @@
 {% endblock title %}
 
 {% block content %}
+ 
+
     <div class="ml-3">Hello {{ name }}</div>
     <div><form method="POST" action="/logout">
         {{ macros::submit_button(text="Logout") }}

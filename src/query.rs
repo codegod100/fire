@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::Turso;
 use anyhow::Result;
 use libsql::de::from_row;
@@ -64,7 +66,7 @@ impl Turso {
             None => Ok(None),
         }
     }
-    pub async fn update_comment(&self, id: i32, body: String) -> Result<Option<Comment>> {
+    pub async fn update_comment(&self, id: i32, body: &str) -> Result<Option<Comment>> {
         self.0
             .execute(
                 "update comments set body = ?1 where id = ?2",
@@ -114,34 +116,34 @@ impl Turso {
     }
 }
 
-fn sort_comments(comments: Vec<Comment>) -> Vec<Comment> {
-    let parent_comments = comments
-        .clone()
+fn sort_comments(mut comments: Vec<Comment>) -> Vec<Comment> {
+    let c = comments.to_owned();
+    for comment in comments.iter_mut() {
+        add_children(comment, &c)
+    }
+
+    comments
         .into_iter()
-        .map(|c| add_children(c, comments.clone()))
         .filter(|comment| match comment.parent_id {
             Some(_) => false,
             None => true,
         })
-        .collect::<Vec<Comment>>();
-    parent_comments
+        .collect()
 }
 
-fn add_children(mut comment: Comment, comments: Vec<Comment>) -> Comment {
-    // Find children for comment
-    let children = children_for_parent(comment.clone(), comments.clone());
-    let nested: Vec<Comment> = children
-        .into_iter()
-        .map(|child| add_children(child, comments.clone()))
-        .collect();
-    comment.children = nested;
-    comment
+fn add_children(comment: &mut Comment, comments: &[Comment]) {
+    let mut children = children_for_parent(&comment, comments);
+    for child in children.iter_mut() {
+        add_children(child, comments);
+    }
+    comment.children = children;
 }
 
-fn children_for_parent(parent: Comment, comments: Vec<Comment>) -> Vec<Comment> {
+fn children_for_parent(parent: &Comment, comments: &[Comment]) -> Vec<Comment> {
     let children = comments
         .into_iter()
         .filter(|comment| comment.parent_id == Some(parent.id))
+        .map(|comment| comment.to_owned())
         .collect();
     children
 }
