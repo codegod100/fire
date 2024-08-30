@@ -46,7 +46,7 @@ impl Turso {
             .await?;
         match row {
             Some(row) => {
-                let mut post = from_row::<Post>(&row).unwrap();
+                let mut post = from_row::<Post>(&row)?;
                 post.comments = sort_comments(self.get_comments_by_post_id(id).await?);
 
                 Ok(Some(post))
@@ -60,7 +60,7 @@ impl Turso {
             .await?;
         match row {
             Some(row) => {
-                let comment = from_row::<Comment>(&row).unwrap();
+                let comment = from_row::<Comment>(&row)?;
                 Ok(Some(comment))
             }
             None => Ok(None),
@@ -72,28 +72,23 @@ impl Turso {
                 "update comments set body = ?1 where id = ?2",
                 libsql::params! { body,id },
             )
-            .await
-            .unwrap();
+            .await?;
         self.get_comment_by_id(id).await
     }
 
     pub async fn get_comments_by_post_id(&self, id: i32) -> Result<Vec<Comment>> {
-        let rows = self
+        let mut rows = self
             .0
             .query(
                 "select * from comments where post_id = ?1",
                 libsql::params! {id},
             )
             .await?;
-        let comments = rows
-            .into_stream()
-            .map(|row| {
-                let row = row.unwrap();
-                let comment = from_row::<Comment>(&row).unwrap();
-                comment
-            })
-            .collect::<Vec<Comment>>()
-            .await;
+        let mut comments = vec![];
+        while let Ok(Some(row)) = rows.next().await {
+            let comment = from_row::<Comment>(&row)?;
+            comments.push(comment)
+        }
         Ok(comments)
     }
 
