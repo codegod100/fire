@@ -7,10 +7,13 @@ use rocket::form::Form;
 use rocket::http::{CookieJar, Status};
 use rocket::request::FlashMessage;
 use rocket::request::{self, FromRequest, Outcome, Request};
+use rocket::response::status::Custom;
 use rocket::response::{Flash, Redirect};
 use rocket_dyn_templates::{context, Template};
-use std::env;
+use std::error::Error;
+use std::fmt::Display;
 use std::time::Instant;
+use std::{env, io};
 
 use rocket::fs::NamedFile;
 use std::path::{Path, PathBuf};
@@ -21,10 +24,13 @@ struct Turso(libsql::Connection);
 
 struct Auth(String);
 
-#[derive(FromForm)]
+#[derive(FromForm, Default)]
 pub struct CommentForm {
-    id: i32,
-    pub body: String,
+    id: Option<i32>,
+    pub author: Option<String>,
+    pub post_id: Option<i32>,
+    body: Option<String>,
+    parent_id: Option<i32>,
 }
 
 #[rocket::async_trait]
@@ -64,7 +70,8 @@ impl<'r> FromRequest<'r> for Auth {
 
 #[get("/")]
 async fn index(auth: Auth, turso: Turso) -> Template {
-    let post = turso.get_post_by_id(1).await.unwrap();
+    let posts = turso.get_posts_by_username(&auth.0).await.unwrap();
+    let post = posts.into_iter().next().unwrap();
     Template::render(
         "index",
         context! {
@@ -109,13 +116,36 @@ async fn get_comment(id: i32, turso: Turso) -> Template {
     )
 }
 
+#[get("/reply_comment/<post_id>/<comment_id>")]
+async fn reply_comment(post_id: i32, comment_id: i32, turso: Turso, auth: Auth) -> Template {
+    Template::render(
+        "reply_comment",
+        context! {name: auth.0, post_id: post_id, comment_id: comment_id},
+    )
+}
+
+#[post("/create_comment", data = "<comment>")]
+async fn create_comment(turso: Turso, comment: Form<CommentForm>, auth: Auth) -> Template {
+    turso.create_comment(&comment).await.unwrap();
+
+    let posts = turso.get_posts_by_username(&auth.0).await.unwrap();
+    let post = posts.into_iter().next().unwrap();
+
+    Template::render(
+        "comments",
+        context! {
+            post: post,
+            name: auth.0
+
+        },
+    )
+}
+
 #[post("/update_comment", data = "<comment>")]
 async fn update_comment(comment: Form<CommentForm>, turso: Turso) -> Template {
-    let comment = turso
-        .update_comment(comment.id, &comment.body)
-        .await
-        .unwrap()
-        .unwrap();
+    let id = comment.id.clone().unwrap();
+    let body = comment.body.clone().unwrap();
+    let comment = turso.update_comment(id, &body).await.unwrap().unwrap();
     Template::render("saved_comment", context! {comment: comment})
 }
 
@@ -161,6 +191,8 @@ async fn rocket() -> _ {
                 fallback_index,
                 get_comment,
                 update_comment,
+                create_comment,
+                reply_comment,
                 post_login,
                 logout,
                 test_path,

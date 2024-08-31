@@ -1,0 +1,5 @@
+{% import "macros" as macros %}
+
+{% for comment in post.comments %}
+    {{ self::make_comment(comment=comment) }}
+{% endfor %}

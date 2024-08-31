@@ -671,6 +671,7 @@ dependencies = [
  "rocket",
  "rocket_dyn_templates",
  "serde",
+ "thiserror",
 ]
 
 [[package]]

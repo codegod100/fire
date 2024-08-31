@@ -1,9 +1,10 @@
 use std::borrow::Cow;
 
-use crate::Turso;
+use crate::{CommentForm, Turso};
 use anyhow::Result;
 use libsql::de::from_row;
 use libsql::{params::IntoParams, Row};
+use rocket::form::Form;
 use rocket::futures::{future, StreamExt};
 use serde::{Deserialize, Serialize};
 
@@ -54,6 +55,23 @@ impl Turso {
             None => Ok(None),
         }
     }
+    pub async fn get_posts_by_username(&self, username: &str) -> Result<Vec<Post>> {
+        let mut rows = self
+            .0
+            .query(
+                "select * from posts where author = ?1",
+                libsql::params! {username},
+            )
+            .await?;
+        let mut posts = vec![];
+        while let Ok(Some(row)) = rows.next().await {
+            let mut post = from_row::<Post>(&row)?;
+            post.comments = sort_comments(self.get_comments_by_post_id(post.id).await?);
+
+            posts.push(post)
+        }
+        Ok(posts)
+    }
     pub async fn get_comment_by_id(&self, id: i32) -> Result<Option<Comment>> {
         let row = self
             .single_query("select * from comments where id = ?1", libsql::params! {id})
@@ -74,6 +92,18 @@ impl Turso {
             )
             .await?;
         self.get_comment_by_id(id).await
+    }
+
+    pub async fn create_comment(&self, comment: &Form<CommentForm>) -> Result<()> {
+        self.0
+            .execute(
+                "insert into comments (author,body,post_id,parent_id) values (?1,?2,?3,?4)",
+                libsql::params! {
+                    comment.author.clone(), comment.body.clone(), comment.post_id, comment.parent_id
+                },
+            )
+            .await?;
+        Ok(())
     }
 
     pub async fn get_comments_by_post_id(&self, id: i32) -> Result<Vec<Comment>> {
