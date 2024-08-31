@@ -1,5 +1,5 @@
 {% import "macros" as macros %}
-<html class="dark:bg-slate-800 dark:text-stone-100">
+<html class="bg-slate-800 text-stone-100">
     <head>
         <title>
             {% block title %}

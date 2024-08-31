@@ -6,7 +6,7 @@
     <input type="hidden" name="parent_id" value="{{ comment_id }}">
     <div class='ml-3'>
         <div>
-            <textarea class='input dark:text-black p-1 align-top' type=text name='body'></textarea> <span class='htmx-indicator'>Saving...</span>
+            <textarea class='input text-black p-1 align-top' type=text name='body'></textarea> <span class='htmx-indicator'>Saving...</span>
 
         </div> 
         <div class='ml-3'><button type='submit' class="underline">save</button></div>

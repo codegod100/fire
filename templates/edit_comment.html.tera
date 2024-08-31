@@ -6,7 +6,7 @@
         <div>
             @{{ comment.author }}: 
             <div>
-                <textarea class='input dark:text-black p-1 align-top' type=text name='body'>{{ comment.body }}</textarea> <span class='htmx-indicator'>Saving...</span>
+                <textarea class='input text-black p-1 align-top' type=text name='body'>{{ comment.body }}</textarea> <span class='htmx-indicator'>Saving...</span>
             </div>
         </div> 
         <div class='ml-3'><button type='submit' class="underline">save</button></div>
