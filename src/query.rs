@@ -14,8 +14,7 @@ pub struct Post {
     title: String,
     body: String,
     author: String,
-    #[serde(skip_deserializing)]
-    comments: Vec<Comment>,
+    pub comments: Vec<Comment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,10 +22,9 @@ pub struct Comment {
     id: i32,
     pub author: String,
     pub body: String,
-    parent_id: Option<i32>,
+    pub parent_id: Option<i32>,
     post_id: i32,
-    #[serde(skip_deserializing)]
-    children: Vec<Comment>,
+    comments: Vec<Comment>,
 }
 
 #[derive(Serialize, Deserialize, Debug, FromForm)]
@@ -161,7 +159,7 @@ fn add_children(comment: &mut Comment, comments: &[Comment]) {
     for child in children.iter_mut() {
         add_children(child, comments);
     }
-    comment.children = children;
+    // comment.children = children;
 }
 
 fn children_for_parent(parent: &Comment, comments: &[Comment]) -> Vec<Comment> {

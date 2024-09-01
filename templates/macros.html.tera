@@ -37,7 +37,7 @@
             {% endif %}
         </div>
     </div>
-    {% for child in comment.children %}
+    {% for child in comment.comments %}
         <div class="ml-3">
             {{ self::make_comment(comment=child) }}
         </div>

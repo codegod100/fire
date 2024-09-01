@@ -2,16 +2,15 @@
 extern crate rocket;
 use dotenvy::dotenv;
 use libsql::Builder;
-use query::{Comment, User, UserForm};
+use postgrest::Postgrest;
+use query::{Comment, Post, User, UserForm};
 use rocket::form::Form;
 use rocket::http::{CookieJar, Status};
 use rocket::request::FlashMessage;
 use rocket::request::{self, FromRequest, Outcome, Request};
-use rocket::response::status::Custom;
 use rocket::response::{Flash, Redirect};
-use rocket_dyn_templates::{context, Template};
-use std::error::Error;
-use std::fmt::Display;
+use rocket_dyn_templates::{context, Metadata, Template};
+use serde::Deserialize;
 use std::time::Instant;
 use std::{env, io};
 
@@ -19,10 +18,13 @@ use rocket::fs::NamedFile;
 use std::path::{Path, PathBuf};
 
 mod query;
+mod supa;
 
 struct Turso(libsql::Connection);
 
 struct Auth(String);
+
+struct Supa(Postgrest);
 
 #[derive(FromForm, Default)]
 pub struct CommentForm {
@@ -68,10 +70,58 @@ impl<'r> FromRequest<'r> for Auth {
     }
 }
 
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for Supa {
+    type Error = std::convert::Infallible;
+
+    async fn from_request(_request: &'r Request<'_>) -> Outcome<Supa, Self::Error> {
+        let client = Postgrest::new(env::var("SUPA_URL").unwrap())
+            .insert_header("apikey", env::var("SUPA_API_KEY").unwrap());
+        Outcome::Success(Supa(client))
+    }
+}
+
+#[derive(Responder)]
+enum Error {
+    DBFailure(String),
+}
+
+impl From<anyhow::Error> for Error {
+    fn from(e: anyhow::Error) -> Self {
+        Error::DBFailure(e.to_string())
+    }
+}
+
+fn nested_comments(depth: i32) -> String {
+    match depth {
+        1 => "comments(*)".to_string(),
+        _ => format!("comments(*, {})", nested_comments(depth - 1)),
+    }
+}
+
 #[get("/")]
-async fn index(auth: Auth, turso: Turso) -> Template {
-    let posts = turso.get_posts_by_username(&auth.0).await.unwrap();
-    let post = posts.into_iter().next().unwrap();
+async fn index(auth: Auth, turso: Turso, supa: Supa) -> Template {
+    println!("{}", auth.0);
+    let query = format!("*, {}", nested_comments(5));
+    println!("{query}");
+    let post = supa
+        .0
+        .from("posts")
+        .eq("author", &auth.0)
+        .select(query)
+        .single()
+        .execute()
+        .await
+        .unwrap();
+    // let post = post.text().await.unwrap();
+    let mut post = post.json::<Post>().await.unwrap();
+    let comments = post
+        .comments
+        .into_iter()
+        .filter(|c| c.parent_id.is_none())
+        .collect();
+    post.comments = comments;
+    println!("{:#?}", post);
     Template::render(
         "index",
         context! {
@@ -100,9 +150,21 @@ fn fallback_index(flash: Option<FlashMessage<'_>>) -> Template {
     }
 }
 
+#[derive(Deserialize, Debug)]
+struct SupaComment {
+    id: i32,
+    body: String,
+}
 #[get("/test")]
-fn test_path() -> String {
-    format!("test")
+async fn test_path(supa: Supa) -> String {
+    let comments = supa
+        .select("comments", "*")
+        .await
+        .unwrap()
+        .json::<Vec<Comment>>()
+        .await
+        .unwrap();
+    format!("Results: {:#?}", comments)
 }
 
 #[get("/get_comment/<id>")]
