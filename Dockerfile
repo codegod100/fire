@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/build/target \
 ################################################################################
 
 FROM docker.io/debian:bookworm-slim
-RUN apt update && apt install -y mold
+RUN apt update && apt install -y clang mold
 WORKDIR /app
 
 ## copy the main binary
