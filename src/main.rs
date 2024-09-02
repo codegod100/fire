@@ -75,11 +75,8 @@ fn nested_comments(depth: i32) -> String {
 
 #[get("/")]
 async fn index(auth: Auth, supa: Supa) -> Result<Template, Error> {
-    println!("{}", auth.0);
     let query = format!("*, {}", nested_comments(5));
-    println!("{query}");
     let post = supa.get_post(1).await?;
-    println!("{:#?}", post);
     let template = Template::render(
         "index",
         context! {
@@ -94,17 +91,13 @@ async fn index(auth: Auth, supa: Supa) -> Result<Template, Error> {
 #[get("/", rank = 2)]
 fn fallback_index(flash: Option<FlashMessage<'_>>) -> Template {
     match flash {
-        Some(flash) => {
-            println!("flash: {:#?}", flash);
-
-            Template::render(
-                "login",
-                context! {
-                    message: flash.message(),
-                    kind: flash.kind()
-                },
-            )
-        }
+        Some(flash) => Template::render(
+            "login",
+            context! {
+                message: flash.message(),
+                kind: flash.kind()
+            },
+        ),
         None => Template::render("login", context! {}),
     }
 }
@@ -152,7 +145,6 @@ async fn create_comment(
 ) -> Result<Template, Error> {
     let comment = comment.into_inner();
     let comment = serde_json::to_string(&comment)?;
-    println!("comment: {}", comment);
     supa.0.from("comments").insert(comment).execute().await?;
     let post = supa.get_post(1).await?;
     let template = Template::render(
@@ -174,7 +166,6 @@ async fn update_comment(
 ) -> Result<Template, Error> {
     let body = comment.body.clone().unwrap_or_default();
     let body = format!(r#"{{"body": "{}"}}"#, body.to_owned());
-    println!("body {}", body);
     let comment = supa
         .0
         .from("comments")
@@ -209,10 +200,7 @@ async fn post_login(
             jar.add_private(("user_id", user.name));
             Ok(Flash::success(Redirect::to(uri!(index)), ""))
         }
-        Err(e) => {
-            println!("Error: {:#?}", e);
-            Ok(Flash::error(Redirect::to(uri!(index)), "User not found"))
-        }
+        Err(e) => Ok(Flash::error(Redirect::to(uri!(index)), "User not found")),
     }
 }
 

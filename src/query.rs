@@ -98,6 +98,7 @@ impl Supa {
             .from("comments")
             .eq("post_id", post.id.to_string())
             .select("*")
+            .order("created_at.desc")
             .execute()
             .await?;
         let comments = comments.json::<Vec<Comment>>().await?;
