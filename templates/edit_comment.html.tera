@@ -1,6 +1,6 @@
 {% import "macros" as macros %}
 
-<form hx-post="/update_comment/{{ comment.id }}" hx-target="this" hx-swap="outerHTML">
+<form hx-post="/update_comment/{{ comment.id }}" hx-target="this" hx-swap="outerHTML settle:1s">
     <div class='ml-3'>
         <div>
             @{{ comment.author }}: 

@@ -24,10 +24,10 @@
 
 {% macro make_comment(comment) %}
     <div class="ml-3" hx-target="this" hx-swap="outerHTML"> 
-        <div>@{{ comment.author }}: {{ comment.body }}</div>
+        <div>@{{ comment.author }}: {{ comment.body }} [{{ comment.newness }}]</div>
         <div id="reply-{{ comment.id }}">
             {% if name == comment.author or name == "admin" %}
-                <div class="ml-3">
+                <div class="ml-3 comment">
                     <button class="underline" hx-get="/get_comment/{{ comment.id }}">edit</button> 
                     <button class="underline" hx-get="/delete_comment/{{ comment.id }}">delete</button>
                 </div>

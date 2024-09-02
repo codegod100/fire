@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::time::SystemTime;
 
 use crate::{CommentForm, Turso};
 use anyhow::Result;
@@ -10,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Post {
-    id: i32,
+    pub id: i32,
     title: String,
     body: String,
     author: String,
@@ -20,11 +21,19 @@ pub struct Post {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Comment {
     id: i32,
+    pub created_at: String,
+    pub newness: Option<i64>,
     pub author: String,
     pub body: String,
     pub parent_id: Option<i32>,
     post_id: i32,
     comments: Option<Vec<Comment>>,
+}
+
+impl Comment {
+    pub fn yolo(&self) -> String {
+        "yolo".to_string()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, FromForm)]
@@ -139,7 +148,7 @@ impl Turso {
     }
 }
 
-fn sort_comments(mut comments: Vec<Comment>) -> Vec<Comment> {
+pub fn sort_comments(mut comments: Vec<Comment>) -> Vec<Comment> {
     let c = comments.to_owned();
     for comment in comments.iter_mut() {
         add_children(comment, &c)
@@ -159,7 +168,7 @@ fn add_children(comment: &mut Comment, comments: &[Comment]) {
     for child in children.iter_mut() {
         add_children(child, comments);
     }
-    // comment.children = children;
+    comment.comments = Some(children);
 }
 
 fn children_for_parent(parent: &Comment, comments: &[Comment]) -> Vec<Comment> {

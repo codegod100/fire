@@ -14,6 +14,9 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use std::{env, io};
 
+use chrono::prelude::*;
+use chrono_tz::Tz;
+
 use rocket::fs::NamedFile;
 use std::path::{Path, PathBuf};
 
@@ -200,17 +203,38 @@ async fn create_comment(supa: Supa, comment: Form<CommentForm>, auth: Auth) -> T
         .0
         .from("posts")
         .eq("author", &auth.0)
-        .select(query)
+        .select("*")
         .single()
         .execute()
         .await
         .unwrap();
     let mut post = post.json::<Post>().await.unwrap();
-    let comments = post
-        .comments
-        .into_iter()
-        .filter(|c| c.parent_id.is_none())
-        .collect();
+    let comments = supa
+        .0
+        .from("comments")
+        .eq("post_id", post.id.to_string())
+        .is("parent_id", "null")
+        .select("*")
+        .execute()
+        .await
+        .unwrap();
+    let comments = comments.json::<Vec<Comment>>().await.unwrap();
+    let comments = query::sort_comments(comments);
+    // let mut comments = vec![];
+    // for mut comment in post.comments.into_iter() {
+    //     if !comment.parent_id.is_none() {
+    //         continue;
+    //     }
+    //     println!("time: {:#?}", comment.created_at);
+    //     // let time = fuzzydate::parse(&comment.created_at).unwrap();
+    //     let time =
+    //         DateTime::parse_from_str(&comment.created_at, "%Y-%m-%dT%H:%M:%S%.6f%z").unwrap();
+    //     let now = Utc::now();
+    //     let diff = now.signed_duration_since(time).num_seconds();
+    //     comment.newness = Some(diff);
+    //     comments.push(comment);
+    // }
+
     post.comments = comments;
     Template::render(
         "comments",

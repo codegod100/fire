@@ -15,3 +15,9 @@
     {% block content %}
     {% endblock content %}
 </html>
+
+<style>
+    .new-comment.htmx-settling{
+        background-color: yellow;
+    }
+</style>
