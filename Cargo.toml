@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.86"
 chrono = "0.4.38"
+chrono-humanize = "0.2.3"
 chrono-tz = "0.9.0"
 dotenvy = "0.15.7"
 fuzzydate = "0.2.2"

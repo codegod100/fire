@@ -106,23 +106,7 @@ async fn index(auth: Auth, supa: Supa) -> Template {
     println!("{}", auth.0);
     let query = format!("*, {}", nested_comments(5));
     println!("{query}");
-    let post = supa
-        .0
-        .from("posts")
-        .eq("author", &auth.0)
-        .select(query)
-        .single()
-        .execute()
-        .await
-        .unwrap();
-    // let post = post.text().await.unwrap();
-    let mut post = post.json::<Post>().await.unwrap();
-    let comments = post
-        .comments
-        .into_iter()
-        .filter(|c| c.parent_id.is_none())
-        .collect();
-    post.comments = comments;
+    let post = supa.get_post(1).await.unwrap();
     println!("{:#?}", post);
     Template::render(
         "index",
@@ -192,50 +176,13 @@ async fn create_comment(supa: Supa, comment: Form<CommentForm>, auth: Auth) -> T
     let comment = comment.into_inner();
     let comment = serde_json::to_string(&comment).unwrap();
     println!("comment: {}", comment);
-    let query = format!("*, {}", nested_comments(5));
     supa.0
         .from("comments")
         .insert(comment)
         .execute()
         .await
         .unwrap();
-    let post = supa
-        .0
-        .from("posts")
-        .eq("author", &auth.0)
-        .select("*")
-        .single()
-        .execute()
-        .await
-        .unwrap();
-    let mut post = post.json::<Post>().await.unwrap();
-    let comments = supa
-        .0
-        .from("comments")
-        .eq("post_id", post.id.to_string())
-        .is("parent_id", "null")
-        .select("*")
-        .execute()
-        .await
-        .unwrap();
-    let comments = comments.json::<Vec<Comment>>().await.unwrap();
-    let comments = query::sort_comments(comments);
-    // let mut comments = vec![];
-    // for mut comment in post.comments.into_iter() {
-    //     if !comment.parent_id.is_none() {
-    //         continue;
-    //     }
-    //     println!("time: {:#?}", comment.created_at);
-    //     // let time = fuzzydate::parse(&comment.created_at).unwrap();
-    //     let time =
-    //         DateTime::parse_from_str(&comment.created_at, "%Y-%m-%dT%H:%M:%S%.6f%z").unwrap();
-    //     let now = Utc::now();
-    //     let diff = now.signed_duration_since(time).num_seconds();
-    //     comment.newness = Some(diff);
-    //     comments.push(comment);
-    // }
-
-    post.comments = comments;
+    let post = supa.get_post(1).await.unwrap();
     Template::render(
         "comments",
         context! {

@@ -1,4 +1,4 @@
-    <div class="ml-3 new-comment" hx-target="this" hx-swap="outerHTML"> 
+    <div class="ml-3" hx-target="this" hx-swap="outerHTML"> 
         <div>@{{ comment.author }}: {{ comment.body }}</div>
         <div class="ml-3"><button class="underline" hx-get="/get_comment/{{ comment.id }}">edit</button></div>
     </div>

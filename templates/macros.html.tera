@@ -24,7 +24,8 @@
 
 {% macro make_comment(comment) %}
     <div class="ml-3" hx-target="this" hx-swap="outerHTML"> 
-        <div>@{{ comment.author }}: {{ comment.body }} [{{ comment.newness }}]</div>
+        <div>@{{ comment.author }}: {{ comment.body }} </div>
+        <div>({{ comment.newness_str }})</div>
         <div id="reply-{{ comment.id }}">
             {% if name == comment.author or name == "admin" %}
                 <div class="ml-3 comment">
