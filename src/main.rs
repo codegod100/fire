@@ -157,6 +157,25 @@ async fn create_comment(
     );
     Ok(template)
 }
+#[post("/delete_comment/<id>")]
+async fn delete_comment(id: i32, supa: Supa, auth: Auth) -> Result<Template, Error> {
+    supa.0
+        .from("comments")
+        .eq("id", id.to_string())
+        .delete()
+        .execute()
+        .await?;
+    let post = supa.get_post(1).await?;
+    let template = Template::render(
+        "comments",
+        context! {
+            post: post,
+            name: auth.0
+
+        },
+    );
+    Ok(template)
+}
 
 #[post("/update_comment/<id>", data = "<comment>")]
 async fn update_comment(
@@ -232,6 +251,7 @@ async fn rocket() -> _ {
                 update_comment,
                 create_comment,
                 reply_comment,
+                delete_comment,
                 post_login,
                 logout,
                 test_path,

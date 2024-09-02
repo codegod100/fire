@@ -1,5 +1,5 @@
 {% macro submit_button(text) %}
-<button type="submit" class="mt-5 ml-5 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+    <button type="submit" class="mt-5 ml-5 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
     >{{text}}</button>
 {% endmacro submit_button %}
 
@@ -8,11 +8,11 @@
         <div class="text-2xl">{{ post.title }}</div>
         <div class="mb-3">@{{ post.author }}: {{ post.body }}</div>
         <div>Comments:</div>
-        <form hx-post="/create_comment" hx-target="#comments" hx-swap="outerHTML" hx-on:submit="console.log(document.getElementById('comment-value').value='')">
+        <form hx-post="/create_comment" hx-target="#comments" hx-swap="innerHTML" hx-on:submit="console.log(document.getElementById('comment-value').value='')">
             <input type="hidden" name="author" value="{{ name }}">
             <input type="hidden" name="post_id" value="{{ post.id }}">
             <input id="comment-value" text='text' class='input text-black p-1 mt-5' name='body'>
-            <button>Create comment</button>
+            {{ self::submit_button(text="Create comment") }}
         </form>
         <div id="comments">
             {% for comment in post.comments %}
@@ -30,7 +30,7 @@
             {% if name == comment.author or name == "admin" %}
                 <div class="ml-3 comment">
                     <button class="underline" hx-get="/get_comment/{{ comment.id }}">edit</button> 
-                    <button class="underline" hx-get="/delete_comment/{{ comment.id }}">delete</button>
+                    <button class="underline" hx-swap="innerHTML" hx-target="#comments" hx-post="/delete_comment/{{ comment.id }}">delete</button>
                 </div>
             {% else %}
                 <button class="underline ml-3" hx-get="/reply_comment/{{ post.id }}/{{ comment.id }}" hx-target="this">reply</button>
