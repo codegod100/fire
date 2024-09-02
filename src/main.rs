@@ -10,7 +10,7 @@ use rocket::request::FlashMessage;
 use rocket::request::{self, FromRequest, Outcome, Request};
 use rocket::response::{Flash, Redirect};
 use rocket_dyn_templates::{context, Metadata, Template};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use std::{env, io};
 
@@ -26,7 +26,7 @@ struct Auth(String);
 
 struct Supa(Postgrest);
 
-#[derive(FromForm, Default)]
+#[derive(FromForm, Default,Serialize)]
 pub struct CommentForm {
     id: Option<i32>,
     pub author: Option<String>,
@@ -35,27 +35,27 @@ pub struct CommentForm {
     parent_id: Option<i32>,
 }
 
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for Turso {
-    type Error = std::convert::Infallible;
+// #[rocket::async_trait]
+// impl<'r> FromRequest<'r> for Turso {
+//     type Error = std::convert::Infallible;
 
-    async fn from_request(_request: &'r Request<'_>) -> Outcome<Turso, Self::Error> {
-        let time = Instant::now();
-        let url = env::var("LIBSQL_URL").expect("LIBSQL_URL must be set");
-        let token = env::var("LIBSQL_AUTH_TOKEN").unwrap_or_default();
+//     async fn from_request(_request: &'r Request<'_>) -> Outcome<Turso, Self::Error> {
+//         let time = Instant::now();
+//         let url = env::var("LIBSQL_URL").expect("LIBSQL_URL must be set");
+//         let token = env::var("LIBSQL_AUTH_TOKEN").unwrap_or_default();
 
-        // let db = Builder::new_remote_replica("local.db", url, token)
-        //     .build()
-        //     .await
-        //     .unwrap();
-        let db = Builder::new_remote(url, token).build().await.unwrap();
-        let conn = db.connect().unwrap();
+//         // let db = Builder::new_remote_replica("local.db", url, token)
+//         //     .build()
+//         //     .await
+//         //     .unwrap();
+//         let db = Builder::new_remote(url, token).build().await.unwrap();
+//         let conn = db.connect().unwrap();
 
-        // db.sync().await.unwrap();
-        println!("Time: {}", time.elapsed().as_secs_f32());
-        Outcome::Success(Turso(conn))
-    }
-}
+//         // db.sync().await.unwrap();
+//         println!("Time: {}", time.elapsed().as_secs_f32());
+//         Outcome::Success(Turso(conn))
+//     }
+// }
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for Auth {
@@ -100,7 +100,7 @@ fn nested_comments(depth: i32) -> String {
 }
 
 #[get("/")]
-async fn index(auth: Auth, turso: Turso, supa: Supa) -> Template {
+async fn index(auth: Auth, supa: Supa) -> Template {
     println!("{}", auth.0);
     let query = format!("*, {}", nested_comments(5));
     println!("{query}");
@@ -150,11 +150,7 @@ fn fallback_index(flash: Option<FlashMessage<'_>>) -> Template {
     }
 }
 
-#[derive(Deserialize, Debug)]
-struct SupaComment {
-    id: i32,
-    body: String,
-}
+
 #[get("/test")]
 async fn test_path(supa: Supa) -> String {
     let comments = supa
@@ -167,19 +163,10 @@ async fn test_path(supa: Supa) -> String {
     format!("Results: {:#?}", comments)
 }
 
-#[get("/get_comment/<id>")]
-async fn get_comment(id: i32, turso: Turso) -> Template {
-    let comment = turso.get_comment_by_id(id).await.unwrap().unwrap();
-    Template::render(
-        "edit_comment",
-        context! {
-            comment: comment
-        },
-    )
-}
+
 
 #[get("/reply_comment/<post_id>/<comment_id>")]
-async fn reply_comment(post_id: i32, comment_id: i32, turso: Turso, auth: Auth) -> Template {
+async fn reply_comment(post_id: i32, comment_id: i32,  auth: Auth) -> Template {
     Template::render(
         "reply_comment",
         context! {name: auth.0, post_id: post_id, comment_id: comment_id},
@@ -187,12 +174,12 @@ async fn reply_comment(post_id: i32, comment_id: i32, turso: Turso, auth: Auth) 
 }
 
 #[post("/create_comment", data = "<comment>")]
-async fn create_comment(turso: Turso, comment: Form<CommentForm>, auth: Auth) -> Template {
-    turso.create_comment(&comment).await.unwrap();
-
-    let posts = turso.get_posts_by_username(&auth.0).await.unwrap();
-    let post = posts.into_iter().next().unwrap();
-
+async fn create_comment(supa: Supa,comment: Form<CommentForm>, auth: Auth) -> Template {
+    let comment = comment.into_inner();
+    let comment = serde_json::to_string(&comment).unwrap();
+    supa.0.from("comments").insert(comment).execute().await.unwrap();
+    let post = supa.0.from("posts").eq("username", &auth.0).select("*").single().execute().await.unwrap();
+    let post = post.json::<Post>().await.unwrap();
     Template::render(
         "comments",
         context! {
@@ -204,10 +191,11 @@ async fn create_comment(turso: Turso, comment: Form<CommentForm>, auth: Auth) ->
 }
 
 #[post("/update_comment", data = "<comment>")]
-async fn update_comment(comment: Form<CommentForm>, turso: Turso) -> Template {
-    let id = comment.id.clone().unwrap();
-    let body = comment.body.clone().unwrap();
-    let comment = turso.update_comment(id, &body).await.unwrap().unwrap();
+async fn update_comment(comment: Form<CommentForm>, supa: Supa) -> Template {
+    let comment = comment.into_inner();
+    let comment = serde_json::to_string(&comment).unwrap();
+    let comment = supa.0.from("comments").update(comment).execute().await.unwrap();
+    let comment = comment.json::<Comment>().await.unwrap();
     Template::render("saved_comment", context! {comment: comment})
 }
 
@@ -215,16 +203,18 @@ async fn update_comment(comment: Form<CommentForm>, turso: Turso) -> Template {
 async fn post_login(
     jar: &CookieJar<'_>,
     user: Form<UserForm>,
-    turso: Turso,
+    supa: Supa
 ) -> Result<Redirect, Flash<Redirect>> {
-    let db_user = turso.get_user_by_name(&user.name).await.unwrap();
-    if let Some(db_user) = db_user {
-        if db_user.name == user.name {
-            jar.add_private(("user_id", db_user.name));
-            return Ok(Redirect::to(uri!(index)));
-        }
+    let user = supa.0.from("users").eq("name", &user.name).select("*").single().execute().await.unwrap();
+    let user = user.json::<User>().await;
+    match user {
+        Ok(user) => {
+            jar.add_private(("user_id", user.name));
+            Ok(Redirect::to(uri!(index)))},
+        Err(e) => {
+            println!("Error: {:#?}", e);
+            Err(Flash::error(Redirect::to(uri!(index)), "User not found"))}
     }
-    Err(Flash::error(Redirect::to(uri!(index)), "User not found"))
 }
 
 #[post("/logout")]
@@ -251,7 +241,6 @@ async fn rocket() -> _ {
             routes![
                 index,
                 fallback_index,
-                get_comment,
                 update_comment,
                 create_comment,
                 reply_comment,
