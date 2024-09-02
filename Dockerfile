@@ -6,7 +6,7 @@ ARG pkg=fire
 WORKDIR /build
 
 COPY . .
-RUN apt update && apt install -y clang mold
+RUN apt update && apt install -y clang mold pkg-config libssl-dev
 
 RUN --mount=type=cache,target=/build/target \
     --mount=type=cache,target=/usr/local/cargo/registry \
