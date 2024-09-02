@@ -28,7 +28,6 @@ struct Supa(Postgrest);
 
 #[derive(FromForm, Default, Serialize)]
 pub struct CommentForm {
-    id: Option<i32>,
     pub author: Option<String>,
     pub post_id: Option<i32>,
     body: Option<String>,
@@ -189,6 +188,8 @@ async fn get_comment(id: i32, supa: Supa) -> Template {
 async fn create_comment(supa: Supa, comment: Form<CommentForm>, auth: Auth) -> Template {
     let comment = comment.into_inner();
     let comment = serde_json::to_string(&comment).unwrap();
+    println!("comment: {}", comment);
+    let query = format!("*, {}", nested_comments(5));
     supa.0
         .from("comments")
         .insert(comment)
@@ -198,13 +199,19 @@ async fn create_comment(supa: Supa, comment: Form<CommentForm>, auth: Auth) -> T
     let post = supa
         .0
         .from("posts")
-        .eq("username", &auth.0)
-        .select("*")
+        .eq("author", &auth.0)
+        .select(query)
         .single()
         .execute()
         .await
         .unwrap();
-    let post = post.json::<Post>().await.unwrap();
+    let mut post = post.json::<Post>().await.unwrap();
+    let comments = post
+        .comments
+        .into_iter()
+        .filter(|c| c.parent_id.is_none())
+        .collect();
+    post.comments = comments;
     Template::render(
         "comments",
         context! {
@@ -215,17 +222,16 @@ async fn create_comment(supa: Supa, comment: Form<CommentForm>, auth: Auth) -> T
     )
 }
 
-#[post("/update_comment", data = "<comment>")]
-async fn update_comment(comment: Form<CommentForm>, supa: Supa) -> Template {
-    let id = comment.id.unwrap();
-    let comment = comment.into_inner();
-    let comment = serde_json::to_string(&comment).unwrap();
-    println!("comment: {}", comment);
+#[post("/update_comment/<id>", data = "<comment>")]
+async fn update_comment(id: &str, comment: Form<CommentForm>, supa: Supa) -> Template {
+    let body = comment.body.clone().unwrap();
+    let body = format!(r#"{{"body": "{}"}}"#, body);
+    println!("body {}", body);
     let comment = supa
         .0
         .from("comments")
-        .eq("id", id.to_string())
-        .update(comment)
+        .eq("id", id)
+        .update(body)
         .select("*")
         .single()
         .execute()
