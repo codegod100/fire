@@ -9,10 +9,7 @@ chrono = "0.4.38"
 chrono-humanize = "0.2.3"
 chrono-tz = "0.9.0"
 dotenvy = "0.15.7"
-fuzzydate = "0.2.2"
-libsql = "0.5.0"
 serde_json = "1.0.127"
-thiserror = "1.0.63"
 
 [dependencies.postgrest]
 version = "1.6.0"
