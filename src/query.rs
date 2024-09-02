@@ -24,7 +24,7 @@ pub struct Comment {
     pub body: String,
     pub parent_id: Option<i32>,
     post_id: i32,
-    comments: Vec<Comment>,
+    comments: Option<Vec<Comment>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, FromForm)]

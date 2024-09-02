@@ -26,7 +26,7 @@ struct Auth(String);
 
 struct Supa(Postgrest);
 
-#[derive(FromForm, Default,Serialize)]
+#[derive(FromForm, Default, Serialize)]
 pub struct CommentForm {
     id: Option<i32>,
     pub author: Option<String>,
@@ -150,7 +150,6 @@ fn fallback_index(flash: Option<FlashMessage<'_>>) -> Template {
     }
 }
 
-
 #[get("/test")]
 async fn test_path(supa: Supa) -> String {
     let comments = supa
@@ -163,22 +162,48 @@ async fn test_path(supa: Supa) -> String {
     format!("Results: {:#?}", comments)
 }
 
-
-
 #[get("/reply_comment/<post_id>/<comment_id>")]
-async fn reply_comment(post_id: i32, comment_id: i32,  auth: Auth) -> Template {
+async fn reply_comment(post_id: i32, comment_id: i32, auth: Auth) -> Template {
     Template::render(
         "reply_comment",
         context! {name: auth.0, post_id: post_id, comment_id: comment_id},
     )
 }
 
+#[get("/get_comment/<id>")]
+async fn get_comment(id: i32, supa: Supa) -> Template {
+    let comment = supa
+        .0
+        .from("comments")
+        .eq("id", id.to_string())
+        .select("*")
+        .single()
+        .execute()
+        .await
+        .unwrap();
+    let comment = comment.json::<Comment>().await.unwrap();
+    Template::render("edit_comment", context! {comment: comment})
+}
+
 #[post("/create_comment", data = "<comment>")]
-async fn create_comment(supa: Supa,comment: Form<CommentForm>, auth: Auth) -> Template {
+async fn create_comment(supa: Supa, comment: Form<CommentForm>, auth: Auth) -> Template {
     let comment = comment.into_inner();
     let comment = serde_json::to_string(&comment).unwrap();
-    supa.0.from("comments").insert(comment).execute().await.unwrap();
-    let post = supa.0.from("posts").eq("username", &auth.0).select("*").single().execute().await.unwrap();
+    supa.0
+        .from("comments")
+        .insert(comment)
+        .execute()
+        .await
+        .unwrap();
+    let post = supa
+        .0
+        .from("posts")
+        .eq("username", &auth.0)
+        .select("*")
+        .single()
+        .execute()
+        .await
+        .unwrap();
     let post = post.json::<Post>().await.unwrap();
     Template::render(
         "comments",
@@ -192,9 +217,20 @@ async fn create_comment(supa: Supa,comment: Form<CommentForm>, auth: Auth) -> Te
 
 #[post("/update_comment", data = "<comment>")]
 async fn update_comment(comment: Form<CommentForm>, supa: Supa) -> Template {
+    let id = comment.id.unwrap();
     let comment = comment.into_inner();
     let comment = serde_json::to_string(&comment).unwrap();
-    let comment = supa.0.from("comments").update(comment).execute().await.unwrap();
+    println!("comment: {}", comment);
+    let comment = supa
+        .0
+        .from("comments")
+        .eq("id", id.to_string())
+        .update(comment)
+        .select("*")
+        .single()
+        .execute()
+        .await
+        .unwrap();
     let comment = comment.json::<Comment>().await.unwrap();
     Template::render("saved_comment", context! {comment: comment})
 }
@@ -203,17 +239,27 @@ async fn update_comment(comment: Form<CommentForm>, supa: Supa) -> Template {
 async fn post_login(
     jar: &CookieJar<'_>,
     user: Form<UserForm>,
-    supa: Supa
+    supa: Supa,
 ) -> Result<Redirect, Flash<Redirect>> {
-    let user = supa.0.from("users").eq("name", &user.name).select("*").single().execute().await.unwrap();
+    let user = supa
+        .0
+        .from("users")
+        .eq("name", &user.name)
+        .select("*")
+        .single()
+        .execute()
+        .await
+        .unwrap();
     let user = user.json::<User>().await;
     match user {
         Ok(user) => {
             jar.add_private(("user_id", user.name));
-            Ok(Redirect::to(uri!(index)))},
+            Ok(Redirect::to(uri!(index)))
+        }
         Err(e) => {
             println!("Error: {:#?}", e);
-            Err(Flash::error(Redirect::to(uri!(index)), "User not found"))}
+            Err(Flash::error(Redirect::to(uri!(index)), "User not found"))
+        }
     }
 }
 
@@ -241,6 +287,7 @@ async fn rocket() -> _ {
             routes![
                 index,
                 fallback_index,
+                get_comment,
                 update_comment,
                 create_comment,
                 reply_comment,
