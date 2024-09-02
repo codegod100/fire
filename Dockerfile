@@ -20,6 +20,8 @@ RUN --mount=type=cache,target=/build/target \
 FROM docker.io/debian:bookworm-slim
 WORKDIR /app
 
+RUN apt update && apt install -y libssl-dev
+
 ## copy the main binary
 COPY --from=build /build/main ./
 
