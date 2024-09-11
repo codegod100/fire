@@ -8,6 +8,7 @@ use rocket::http::{CookieJar, Status};
 use rocket::request::FlashMessage;
 use rocket::request::{self, FromRequest, Outcome, Request};
 use rocket::response::{Flash, Redirect};
+use rocket::State;
 use rocket_dyn_templates::{context, Metadata, Template};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -44,16 +45,17 @@ impl<'r> FromRequest<'r> for Auth {
     }
 }
 
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for Supa {
-    type Error = std::convert::Infallible;
 
-    async fn from_request(_request: &'r Request<'_>) -> Outcome<Supa, Self::Error> {
-        let client = Postgrest::new(env::var("SUPA_URL").unwrap())
-            .insert_header("apikey", env::var("SUPA_API_KEY").unwrap());
-        Outcome::Success(Supa(client))
-    }
-}
+// #[rocket::async_trait]
+// impl<'r> FromRequest<'r> for Supa {
+//     type Error = std::convert::Infallible;
+
+//     async fn from_request(_request: &'r Request<'_>) -> Outcome<Supa, Self::Error> {
+//         let client = Postgrest::new(env::var("SUPA_URL").unwrap())
+//             .insert_header("apikey", env::var("SUPA_API_KEY").unwrap());
+//         Outcome::Success(Supa(client))
+//     }
+// }
 
 #[derive(Responder)]
 enum Error {
@@ -74,7 +76,7 @@ fn nested_comments(depth: i32) -> String {
 }
 
 #[get("/")]
-async fn index(auth: Auth, supa: Supa) -> Result<Template, Error> {
+async fn index(auth: Auth, supa: &State<Supa>) -> Result<Template, Error> {
     let query = format!("*, {}", nested_comments(5));
     let post = supa.get_post(1).await?;
     let template = Template::render(
@@ -103,7 +105,7 @@ fn fallback_index(flash: Option<FlashMessage<'_>>) -> Template {
 }
 
 #[get("/test")]
-async fn test_path(supa: Supa) -> String {
+async fn test_path(supa: &State<Supa>) -> String {
     let comments = supa
         .select("comments", "*")
         .await
@@ -123,7 +125,7 @@ async fn reply_comment(post_id: i32, comment_id: i32, auth: Auth) -> Template {
 }
 
 #[get("/get_comment/<id>")]
-async fn get_comment(id: i32, supa: Supa) -> Result<Template, Error> {
+async fn get_comment(id: i32, supa: &State<Supa>) -> Result<Template, Error> {
     let comment = supa
         .0
         .from("comments")
@@ -139,7 +141,7 @@ async fn get_comment(id: i32, supa: Supa) -> Result<Template, Error> {
 
 #[post("/create_comment", data = "<comment>")]
 async fn create_comment(
-    supa: Supa,
+    supa: &State<Supa>,
     comment: Form<CommentForm>,
     auth: Auth,
 ) -> Result<Template, Error> {
@@ -158,7 +160,7 @@ async fn create_comment(
     Ok(template)
 }
 #[post("/delete_comment/<id>")]
-async fn delete_comment(id: i32, supa: Supa, auth: Auth) -> Result<Template, Error> {
+async fn delete_comment(id: i32, supa: &State<Supa>, auth: Auth) -> Result<Template, Error> {
     supa.0
         .from("comments")
         .eq("id", id.to_string())
@@ -181,7 +183,7 @@ async fn delete_comment(id: i32, supa: Supa, auth: Auth) -> Result<Template, Err
 async fn update_comment(
     id: &str,
     comment: Form<CommentForm>,
-    supa: Supa,
+    supa: &State<Supa>,
 ) -> Result<Template, Error> {
     let body = comment.body.clone().unwrap_or_default();
     let body = format!(r#"{{"body": "{}"}}"#, body.to_owned());
@@ -203,7 +205,7 @@ async fn update_comment(
 async fn post_login(
     jar: &CookieJar<'_>,
     user: Form<UserForm>,
-    supa: Supa,
+    supa: &State<Supa>,
 ) -> Result<Flash<Redirect>, Error> {
     let user = supa
         .0
@@ -242,6 +244,8 @@ async fn rocket() -> _ {
     }
 
     rocket::build()
+    .manage(Supa(Postgrest::new(env::var("SUPA_URL").unwrap())
+    .insert_header("apikey", env::var("SUPA_API_KEY").unwrap())))
         .mount(
             "/",
             routes![
