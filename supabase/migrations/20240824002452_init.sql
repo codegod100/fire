@@ -1,10 +1,9 @@
--- Add migration script here
 CREATE TABLE "comments" (
 	"id"	INTEGER,
 	"author"	TEXT,
 	"body"	TEXT,
 	"post_id"	INTEGER
-, "parent_id"	INTEGER)
+, "parent_id"	INTEGER);
 
 CREATE TABLE "posts" (
 	"id"	INTEGER,
