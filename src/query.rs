@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -90,7 +90,8 @@ impl Supa {
             .select("*")
             .single()
             .execute()
-            .await?;
+            .await
+            .context("getting post")?;
         // let post = post.text().await.unwrap();
         let mut post = post.json::<Post>().await?;
         let comments = self
@@ -100,7 +101,8 @@ impl Supa {
             .select("*")
             .order("created_at.desc")
             .execute()
-            .await?;
+            .await
+            .context("getting comments")?;
         let comments = comments.json::<Vec<Comment>>().await?;
         let comments = sort_comments(comments)?;
         post.comments = Some(comments);

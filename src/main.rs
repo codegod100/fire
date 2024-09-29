@@ -1,18 +1,21 @@
 #[macro_use]
 extern crate rocket;
+use anyhow::{Context, Result};
 use dotenvy::dotenv;
 use postgrest::Postgrest;
 use query::{Comment, Post, User, UserForm};
+use reqwest::Response;
 use rocket::form::Form;
 use rocket::http::{CookieJar, Status};
 use rocket::request::FlashMessage;
 use rocket::request::{self, FromRequest, Outcome, Request};
 use rocket::response::{Flash, Redirect};
-use rocket::State;
+use rocket::{Build, FromForm, Rocket, State};
 use rocket_dyn_templates::{context, Metadata, Template};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::{env, io};
+use tracing::instrument;
 
 use rocket::fs::NamedFile;
 use std::path::{Path, PathBuf};
@@ -45,7 +48,6 @@ impl<'r> FromRequest<'r> for Auth {
     }
 }
 
-
 // #[rocket::async_trait]
 // impl<'r> FromRequest<'r> for Supa {
 //     type Error = std::convert::Infallible;
@@ -62,8 +64,9 @@ enum Error {
     Err(String),
 }
 
-impl<T: Display> From<T> for Error {
+impl<T: Display + std::fmt::Debug> From<T> for Error {
     fn from(e: T) -> Self {
+        error!("{e:?}");
         Error::Err(e.to_string())
     }
 }
@@ -78,7 +81,7 @@ fn nested_comments(depth: i32) -> String {
 #[get("/")]
 async fn index(auth: Auth, supa: &State<Supa>) -> Result<Template, Error> {
     let query = format!("*, {}", nested_comments(5));
-    let post = supa.get_post(1).await?;
+    let post = supa.get_post(1).await.context("while getting post")?;
     let template = Template::render(
         "index",
         context! {
@@ -139,6 +142,10 @@ async fn get_comment(id: i32, supa: &State<Supa>) -> Result<Template, Error> {
     Ok(template)
 }
 
+#[instrument(skip(supa), ret)]
+async fn insert_comment(supa: &Supa, comment: &str) -> Result<Response, reqwest::Error> {
+    supa.0.from("comments").insert(comment).execute().await
+}
 #[post("/create_comment", data = "<comment>")]
 async fn create_comment(
     supa: &State<Supa>,
@@ -147,7 +154,9 @@ async fn create_comment(
 ) -> Result<Template, Error> {
     let comment = comment.into_inner();
     let comment = serde_json::to_string(&comment)?;
-    supa.0.from("comments").insert(comment).execute().await?;
+    info!("the comment is {comment:?}");
+    insert_comment(supa, &comment).await?;
+    info!("comment inserted");
     let post = supa.get_post(1).await?;
     let template = Template::render(
         "comments",
@@ -201,13 +210,9 @@ async fn update_comment(
     Ok(template)
 }
 
-#[post("/", data = "<user>")]
-async fn post_login(
-    jar: &CookieJar<'_>,
-    user: Form<UserForm>,
-    supa: &State<Supa>,
-) -> Result<Flash<Redirect>, Error> {
-    let user = supa
+#[instrument(skip(supa), ret)]
+async fn query_user(user: &Form<UserForm>, supa: &State<Supa>) -> Result<Response> {
+    let response = supa
         .0
         .from("users")
         .eq("name", &user.name)
@@ -215,9 +220,22 @@ async fn post_login(
         .single()
         .execute()
         .await?;
+    Ok(response)
+}
+#[post("/", data = "<user>")]
+async fn post_login(
+    jar: &CookieJar<'_>,
+    user: Form<UserForm>,
+    supa: &State<Supa>,
+) -> Result<Flash<Redirect>, Error> {
+    info!("querying {user:?}");
+    let user2 = query_user(&user, supa).await?;
+    let user = query_user(&user, supa).await?;
+    info!("{:?}", user2.text().await);
     let user = user.json::<User>().await;
     match user {
         Ok(user) => {
+            info!("successfully got user {user:?}");
             jar.add_private(("user_id", user.name));
             Ok(Flash::success(Redirect::to(uri!(index)), ""))
         }
@@ -236,16 +254,14 @@ async fn files(file: PathBuf) -> Option<NamedFile> {
     NamedFile::open(Path::new("static").join(file)).await.ok()
 }
 
-#[launch]
-async fn rocket() -> _ {
-    match dotenv() {
-        Ok(r) => println!("loaded {:#?}", r),
-        Err(e) => println!(".env not found, skipping {}", e),
-    }
-
-    rocket::build()
-    .manage(Supa(Postgrest::new(env::var("SUPA_URL").unwrap())
-    .insert_header("apikey", env::var("SUPA_API_KEY").unwrap())))
+fn build_rocket() -> Result<Rocket<Build>> {
+    let build = rocket::build()
+        .manage(Supa(
+            Postgrest::new(env::var("SUPA_URL").context("Missing SUPA_URL")?).insert_header(
+                "apikey",
+                env::var("SUPA_API_KEY").context("Missing SUPA_API_KEY")?,
+            ),
+        ))
         .mount(
             "/",
             routes![
@@ -262,5 +278,25 @@ async fn rocket() -> _ {
                 files
             ],
         )
-        .attach(Template::fairing())
+        .attach(Template::fairing());
+    Ok(build)
+}
+
+#[rocket::main]
+async fn main() -> Result<()> {
+    tracing_subscriber::fmt::init();
+    match dotenv() {
+        Ok(r) => println!("loaded {:#?}", r),
+        Err(e) => println!(".env not found, skipping {}", e),
+    }
+    match build_rocket() {
+        Ok(build) => {
+            build.launch().await.unwrap();
+            Ok(())
+        }
+        Err(e) => {
+            error!("{e:?}");
+            Err(e)
+        }
+    }
 }
