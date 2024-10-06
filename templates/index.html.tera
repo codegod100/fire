@@ -1,7 +1,7 @@
 {% extends "base" %}
 
 {% block title %}
-    Greeter
+    Fire 🔥
 {% endblock title %}
 
 {% block content %}

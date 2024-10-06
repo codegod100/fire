@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
 use dotenvy::dotenv;
 use postgrest::Postgrest;
 use query::{Comment, User, UserForm};
@@ -194,6 +195,8 @@ async fn update_comment(
     comment: Form<CommentForm>,
     supa: &State<Supa>,
 ) -> Result<Template, Error> {
+    let now = Utc::now();
+
     let body = comment.body.clone().unwrap_or_default();
     let body = format!(r#"{{"body": "{}"}}"#, body.to_owned());
     let comment = supa
@@ -205,7 +208,11 @@ async fn update_comment(
         .single()
         .execute()
         .await?;
-    let comment = comment.json::<Comment>().await?;
+    let mut comment = comment.json::<Comment>().await?;
+    let time = DateTime::parse_from_str(&comment.created_at, "%Y-%m-%dT%H:%M:%S%.6f%z")?;
+    let diff = now.signed_duration_since(time).num_seconds();
+    comment.newness = Some(diff);
+    comment.newness_str = Some(chrono_humanize::HumanTime::from(time).to_string());
     let template = Template::render("saved_comment", context! {comment: comment});
     Ok(template)
 }
