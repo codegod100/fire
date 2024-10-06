@@ -29,7 +29,7 @@
         <div id="reply-{{ comment.id }}">
             {% if name == comment.author or name == "admin" %}
                 <div class="ml-3 comment">
-                    <button class="underline" hx-get="/get_comment/{{ comment.id }}">edit</button> 
+                    <button class="underline"  hx-get="/get_comment/{{ comment.id }}">edit</button> 
                     <button class="underline" hx-swap="innerHTML" hx-target="#comments" hx-post="/delete_comment/{{ comment.id }}">delete</button>
                 </div>
             {% else %}

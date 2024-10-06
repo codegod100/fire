@@ -1,6 +1,8 @@
-    <div class="ml-3" hx-target="this" hx-swap="outerHTML"> 
-        <div>@{{ comment.author }}: {{ comment.body }}</div>
-        <div class="ml-3"><button class="underline" hx-get="/get_comment/{{ comment.id }}">edit</button></div>
+<div class="ml-3" hx-target="this" hx-swap="outerHTML">
+    <div>@{{ comment.author }}: {{ comment.body }}</div>
+    <div class="ml-3"><button class="underline" hx-get="/get_comment/{{ comment.id }}">edit</button>
+        <button class="underline" hx-swap="innerHTML" hx-target="#comments"
+            hx-post="/delete_comment/{{ comment.id }}">delete
+        </button>
     </div>
-
-
+</div>
