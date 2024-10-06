@@ -3,18 +3,18 @@ extern crate rocket;
 use anyhow::{Context, Result};
 use dotenvy::dotenv;
 use postgrest::Postgrest;
-use query::{Comment, Post, User, UserForm};
+use query::{Comment, User, UserForm};
 use reqwest::Response;
 use rocket::form::Form;
 use rocket::http::{CookieJar, Status};
 use rocket::request::FlashMessage;
-use rocket::request::{self, FromRequest, Outcome, Request};
+use rocket::request::{FromRequest, Outcome, Request};
 use rocket::response::{Flash, Redirect};
 use rocket::{Build, FromForm, Rocket, State};
-use rocket_dyn_templates::{context, Metadata, Template};
-use serde::{Deserialize, Serialize};
+use rocket_dyn_templates::{context, Template};
+use serde::Serialize;
+use std::env;
 use std::fmt::Display;
-use std::{env, io};
 use tracing::instrument;
 
 use rocket::fs::NamedFile;
@@ -71,12 +71,12 @@ impl<T: Display + std::fmt::Debug> From<T> for Error {
     }
 }
 
-fn nested_comments(depth: i32) -> String {
-    match depth {
-        1 => "comments(*)".to_string(),
-        _ => format!("comments(*, {})", nested_comments(depth - 1)),
-    }
-}
+// fn nested_comments(depth: i32) -> String {
+//     match depth {
+//         1 => "comments(*)".to_string(),
+//         _ => format!("comments(*, {})", nested_comments(depth - 1)),
+//     }
+// }
 
 #[get("/")]
 async fn index(auth: Auth, supa: &State<Supa>) -> Result<Template, Error> {
