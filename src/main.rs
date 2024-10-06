@@ -80,7 +80,7 @@ fn nested_comments(depth: i32) -> String {
 
 #[get("/")]
 async fn index(auth: Auth, supa: &State<Supa>) -> Result<Template, Error> {
-    let query = format!("*, {}", nested_comments(5));
+    // let query = format!("*, {}", nested_comments(5));
     let post = supa.get_post(1).await.context("while getting post")?;
     let template = Template::render(
         "index",
@@ -239,7 +239,7 @@ async fn post_login(
             jar.add_private(("user_id", user.name));
             Ok(Flash::success(Redirect::to(uri!(index)), ""))
         }
-        Err(e) => Ok(Flash::error(Redirect::to(uri!(index)), "User not found")),
+        Err(_) => Ok(Flash::error(Redirect::to(uri!(index)), "User not found")),
     }
 }
 

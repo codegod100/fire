@@ -26,11 +26,11 @@ pub struct Comment {
     comments: Option<Vec<Comment>>,
 }
 
-impl Comment {
-    pub fn yolo(&self) -> String {
-        "yolo".to_string()
-    }
-}
+// impl Comment {
+//     pub fn yolo(&self) -> String {
+//         "yolo".to_string()
+//     }
+// }
 
 #[derive(Serialize, Deserialize, Debug, FromForm)]
 pub struct User {
@@ -61,7 +61,7 @@ pub fn sort_comments(mut comments: Vec<Comment>) -> Result<Vec<Comment>> {
 fn add_children(comment: &mut Comment, comments: &[Comment]) -> Result<()> {
     let mut children = children_for_parent(&comment, comments);
     for child in children.iter_mut() {
-        add_children(child, comments);
+        add_children(child, comments)?;
     }
     let time = DateTime::parse_from_str(&comment.created_at, "%Y-%m-%dT%H:%M:%S%.6f%z")?;
     let now = Utc::now();
